@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# Large data files - see data/README.md
+data/*.csv
+data/*.db

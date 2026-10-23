@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraud Detection Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f3f2ef;
+    --surface: #fcfcfb;
+    --border: #e4e3df;
+    --grid: #ebeae6;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --text-3: #7a7974;
+    --legit: #2a78d6;
+    --fraud: #eb6834;
+    --neutral: #8a8984;
+    --track: #e4e3df;
+    --accent-soft: #e8f0fb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #111110; --surface: #1a1a19; --border: #2e2e2c; --grid: #2a2a28;
+      --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e87;
+      --legit: #3987e5; --fraud: #d95926; --neutral: #8f8e87; --track: #33332f;
+      --accent-soft: #1c2a3d;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #111110; --surface: #1a1a19; --border: #2e2e2c; --grid: #2a2a28;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e87;
+    --legit: #3987e5; --fraud: #d95926; --neutral: #8f8e87; --track: #33332f;
+    --accent-soft: #1c2a3d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 8px; }
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-2); margin: 0; }
+  h2 { font-size: 16px; margin: 32px 0 4px; }
+  .section-note { color: var(--text-3); margin: 0 0 12px; font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg button {
+    border: 0; background: transparent; color: var(--text-2); padding: 7px 14px;
+    font: inherit; cursor: pointer; border-right: 1px solid var(--border);
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+  .filter-label { color: var(--text-3); font-size: 12px; margin-right: 8px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .kpi, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .kpi { padding: 14px 16px; }
+  .kpi .label { color: var(--text-2); font-size: 12px; }
+  .kpi .value { font-size: 26px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .kpi .hint { color: var(--text-3); font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; margin-top: 12px; }
+  .card { padding: 16px; min-width: 0; }
+  .card-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .card h3 { font-size: 14px; margin: 0; }
+  .card .desc { color: var(--text-3); font-size: 12px; margin: 2px 0 0; }
+  .chart { position: relative; height: 260px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-2); }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; background: var(--c); vertical-align: -1px; }
+  .slider-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; }
+  .slider-row input { flex: 1 1 220px; accent-color: var(--legit); }
+  .slider-row output { font-weight: 650; font-variant-numeric: tabular-nums; min-width: 40px; }
+  .small-btn { border: 1px solid var(--border); background: transparent; color: var(--text-2); border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  .cm { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px; font-variant-numeric: tabular-nums; }
+  .cm .h { color: var(--text-3); font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 4px; text-align: center; }
+  .cm .cell { border-radius: 8px; padding: 18px 8px; text-align: center; border: 1px solid var(--border); }
+  .cm .cell b { display: block; font-size: 22px; }
+  .cm .cell small { color: var(--text-2); }
+  .meter { height: 12px; background: var(--track); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+  .meter div { height: 100%; background: var(--legit); border-radius: 6px; transition: width .2s; }
+  .meter-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-2); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-2); font-weight: 600; font-size: 12px; }
+  tr.best td { font-weight: 650; }
+  .table-scroll { overflow-x: auto; }
+  .note { color: var(--text-3); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Fraud Detection Dashboard</h1>
+      <p class="sub">ULB credit card transactions · 2 days, September 2013 · after cleaning</p>
+    </div>
+    <div>
+      <span class="filter-label">Show</span>
+      <div class="seg" id="dayFilter" role="group" aria-label="Day filter">
+        <button data-day="all" aria-pressed="true">Both days</button>
+        <button data-day="1" aria-pressed="false">Day 1</button>
+        <button data-day="2" aria-pressed="false">Day 2</button>
+      </div>
+    </div>
+  </header>
+
+  <h2>Executive overview</h2>
+  <p class="section-note">Follows the day filter.</p>
+  <div class="kpis" id="overviewKpis"></div>
+
+  <h2>Fraud patterns</h2>
+  <p class="section-note">Fraud count, fraud rate and fraud value tell different stories, so compare all three. Hover any mark for details.</p>
+  <div class="grid">
+    <div class="card">
+      <div class="card-head"><div><h3>Transactions per hour</h3><p class="desc">All transactions; activity drops overnight</p></div></div>
+      <div class="chart"><canvas id="hourVolume" aria-label="Transactions per hour"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h3>Fraud rate per hour</h3><p class="desc">% of that hour's transactions that are fraud; dashed line = average</p></div></div>
+      <div class="chart"><canvas id="hourRate" aria-label="Fraud rate per hour"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Fraud by amount band</h3><p class="desc" id="bandDesc"></p></div>
+        <div class="seg" id="bandMetric" role="group" aria-label="Band metric">
+          <button data-m="fraud" aria-pressed="true">Cases</button>
+          <button data-m="rate" aria-pressed="false">Rate</button>
+          <button data-m="fraud_value" aria-pressed="false">Value</button>
+        </div>
+      </div>
+      <div class="chart"><canvas id="bands" aria-label="Fraud by amount band"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Amount distribution</h3><p class="desc">% of each class's transactions per amount range (log scale)</p></div>
+        <div class="legend"><span style="--c: var(--legit)">Legitimate</span><span style="--c: var(--fraud)">Fraud</span></div>
+      </div>
+      <div class="chart"><canvas id="dist" aria-label="Amount distribution"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h3>Top 10 highest-value fraud transactions</h3><p class="desc">Amount in EUR</p></div></div>
+      <div class="chart"><canvas id="topFraud" aria-label="Top 10 fraud transactions"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h3>Riskiest hours</h3><p class="desc">Ranked by fraud rate</p></div></div>
+      <div class="table-scroll"><table id="riskHours"></table></div>
+    </div>
+  </div>
+
+  <h2>Model performance</h2>
+  <p class="section-note" id="modelNote"></p>
+  <div class="slider-row">
+    <label for="thr">Alert threshold</label>
+    <input type="range" id="thr" min="0" step="1">
+    <output id="thrOut"></output>
+    <button class="small-btn" id="thrReset">Reset to best</button>
+  </div>
+  <div class="kpis" id="modelKpis"></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Precision vs recall by threshold</h3><p class="desc">Lower threshold = more fraud caught, more false alerts</p></div>
+        <div class="legend"><span style="--c: var(--legit)">Recall</span><span style="--c: var(--fraud)">Precision</span></div>
+      </div>
+      <div class="chart"><canvas id="prThr" aria-label="Precision and recall by threshold"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h3>Confusion matrix</h3><p class="desc">Test-set outcomes at the selected threshold</p></div></div>
+      <div class="cm" id="cm"></div>
+      <div style="margin-top:16px">
+        <div class="card-head" style="margin:0"><h3>Fraud value caught</h3></div>
+        <div class="meter"><div id="meterFill"></div></div>
+        <div class="meter-labels"><span id="meterCaught"></span><span id="meterMissed"></span></div>
+      </div>
+    </div>
+    <div class="card" style="grid-column: 1 / -1">
+      <div class="card-head"><div><h3>Model comparison</h3><p class="desc">All models at the default 0.5 threshold; the best model is in bold</p></div></div>
+      <div class="table-scroll"><table id="models"></table></div>
+    </div>
+  </div>
+
+  <p class="note">Assumptions: reviewing an alert costs <span id="costNote"></span>; a missed fraud loses its full transaction amount. Net benefit = fraud value caught − review cost.
+    Hour of day assumes the data starts at midnight. V1–V28 are anonymised PCA components and are not interpreted.
+    Built by <code>dashboard/build_dashboard.py</code> from the notebook outputs.</p>
+</div>
+
+<script>
+const D = __DASHBOARD_DATA__;
+
+// ---------- helpers ----------
+const eur = (v, d = 0) => "€" + Number(v).toLocaleString("en-IE", { minimumFractionDigits: d, maximumFractionDigits: d });
+const int = v => Number(v).toLocaleString("en-IE");
+const pct = (v, d = 1) => (100 * v).toFixed(d) + "%";
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const columnsToRows = obj => obj[Object.keys(obj)[0]].map((_, i) =>
+  Object.fromEntries(Object.keys(obj).map(k => [k, obj[k][i]])));
+
+const cube = columnsToRows(D.cube);
+const hist = columnsToRows(D.hist);
+const frauds = columnsToRows(D.frauds);
+let day = "all";
+let bandMetric = "fraud";
+let thrIndex = D.thresholds.findIndex(t => t.threshold === D.best_threshold);
+const charts = {};
+
+const forDay = rows => day === "all" ? rows : rows.filter(r => String(r.day) === day);
+const sumBy = (rows, key, size, field) => {
+  const out = Array.from({ length: size }, () => 0);
+  rows.forEach(r => { out[r[key]] += r[field]; });
+  return out;
+};
+
+// ---------- chart defaults ----------
+function baseOptions(extra = {}) {
+  return {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: css("--surface"), titleColor: css("--text"), bodyColor: css("--text-2"),
+        borderColor: css("--border"), borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+      },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: css("--text-2") }, border: { color: css("--border") } },
+      y: { beginAtZero: true, grid: { color: css("--grid") }, ticks: { color: css("--text-2") }, border: { display: false } },
+    },
+    ...extra,
+  };
+}
+const line = (color, data, label) => ({
+  label, data, borderColor: color, backgroundColor: color, borderWidth: 2,
+  pointRadius: 4, pointHoverRadius: 6, pointBorderColor: css("--surface"), pointBorderWidth: 2, tension: 0,
+});
+
+// Draws a dashed reference line: horizontal (y value) or vertical (x value).
+const refLine = {
+  id: "refLine",
+  afterDatasetsDraw(chart, _, opts) {
+    if (opts.value == null) return;
+    const { ctx, chartArea: a, scales } = chart;
+    ctx.save();
+    ctx.strokeStyle = css("--text-3"); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+    ctx.fillStyle = css("--text-3"); ctx.font = "11px system-ui, sans-serif";
+    ctx.beginPath();
+    if (opts.axis === "x") {
+      const x = scales.x.getPixelForValue(opts.value);
+      ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke();
+      ctx.fillText(opts.label, Math.min(x + 4, a.right - 70), a.top + 10);
+    } else {
+      const y = scales.y.getPixelForValue(opts.value);
+      ctx.moveTo(a.left, y); ctx.lineTo(a.right, y); ctx.stroke();
+      ctx.fillText(opts.label, a.right - 70, y - 4);
+    }
+    ctx.restore();
+  },
+};
+Chart.register(refLine);
+
+function draw(id, config) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), config);
+}
+
+// ---------- overview + patterns (follow the day filter) ----------
+function renderOverview() {
+  const rows = forDay(cube);
+  const n = rows.reduce((s, r) => s + r.n, 0);
+  const f = rows.reduce((s, r) => s + r.fraud, 0);
+  const v = rows.reduce((s, r) => s + r.value, 0);
+  const fv = rows.reduce((s, r) => s + r.fraud_value, 0);
+  const tiles = [
+    ["Total transactions", int(n), ""],
+    ["Confirmed frauds", int(f), ""],
+    ["Fraud rate", pct(f / n, 3), "of all transactions"],
+    ["Legitimate transactions", int(n - f), ""],
+    ["Fraud value", eur(fv), pct(fv / v, 2) + " of total value " + eur(v)],
+  ];
+  document.getElementById("overviewKpis").innerHTML = tiles.map(([l, val, h]) =>
+    `<div class="kpi"><div class="label">${l}</div><div class="value">${val}</div><div class="hint">${h}</div></div>`).join("");
+  return f / n;
+}
+
+function renderPatterns(avgRate) {
+  const rows = forDay(cube);
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const hN = sumBy(rows, "hour", 24, "n"), hF = sumBy(rows, "hour", 24, "fraud");
+  const hRate = hN.map((n, i) => n ? 100 * hF[i] / n : 0);
+
+  draw("hourVolume", {
+    type: "line",
+    data: { labels: hours, datasets: [line(css("--legit"), hN, "Transactions")] },
+    options: baseOptions({ plugins: { ...baseOptions().plugins, tooltip: { ...baseOptions().plugins.tooltip,
+      callbacks: { title: i => `Hour ${i[0].label}:00`, label: c => ` ${int(c.raw)} transactions · ${int(hF[c.dataIndex])} fraud` } } } }),
+  });
+  draw("hourRate", {
+    type: "line",
+    data: { labels: hours, datasets: [line(css("--fraud"), hRate, "Fraud rate")] },
+    options: baseOptions({
+      scales: { ...baseOptions().scales, y: { ...baseOptions().scales.y, ticks: { color: css("--text-2"), callback: v => v + "%" } } },
+      plugins: { ...baseOptions().plugins, refLine: { value: 100 * avgRate, label: "average " + (100 * avgRate).toFixed(2) + "%" },
+        tooltip: { ...baseOptions().plugins.tooltip,
+          callbacks: { title: i => `Hour ${i[0].label}:00`, label: c => ` Fraud rate ${c.raw.toFixed(2)}% (${int(hF[c.dataIndex])} of ${int(hN[c.dataIndex])})` } } },
+    }),
+  });
+
+  // Amount bands
+  const bN = sumBy(rows, "band", 8, "n"), bF = sumBy(rows, "band", 8, "fraud"), bV = sumBy(rows, "band", 8, "fraud_value");
+  const totalFV = bV.reduce((a, b) => a + b, 0), totalF = bF.reduce((a, b) => a + b, 0);
+  const metric = { fraud: bF, rate: bN.map((n, i) => n ? 100 * bF[i] / n : 0), fraud_value: bV }[bandMetric];
+  const desc = { fraud: "Number of fraud cases", rate: "% of transactions in the band that are fraud", fraud_value: "Total fraud amount (EUR)" };
+  document.getElementById("bandDesc").textContent = desc[bandMetric];
+  const fmt = { fraud: v => int(v), rate: v => v.toFixed(2) + "%", fraud_value: v => eur(v) }[bandMetric];
+  draw("bands", {
+    type: "bar",
+    data: { labels: D.bands, datasets: [{ data: metric, backgroundColor: css("--fraud"),
+      borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: "start", categoryPercentage: 0.8, barPercentage: 0.9 }] },
+    options: baseOptions({
+      interaction: { mode: "nearest", intersect: false, axis: "x" },
+      scales: { ...baseOptions().scales, y: { ...baseOptions().scales.y, ticks: { color: css("--text-2"), callback: v => fmt(v) } } },
+      plugins: { ...baseOptions().plugins, tooltip: { ...baseOptions().plugins.tooltip, callbacks: {
+        label: c => [` ${int(bF[c.dataIndex])} fraud cases (${pct(bF[c.dataIndex] / totalF)} of cases)`,
+                     ` Fraud rate ${(100 * bF[c.dataIndex] / bN[c.dataIndex]).toFixed(3)}%`,
+                     ` Fraud value ${eur(bV[c.dataIndex])} (${pct(bV[c.dataIndex] / totalFV)} of value)`,
+                     ` ${int(bN[c.dataIndex])} transactions in band`] } } },
+    }),
+  });
+
+  // Amount distribution
+  const bins = D.hist_edges.length - 1;
+  const hRows = forDay(hist);
+  const share = cls => {
+    const counts = sumBy(hRows.filter(r => r.is_fraud === cls), "bin", bins, "n");
+    const total = counts.reduce((a, b) => a + b, 0);
+    return counts.map(c => 100 * c / total);
+  };
+  const binLabels = D.hist_edges.slice(0, -1).map((e, i) => i === 0 ? "€0" : eur(e, e < 10 ? 1 : 0));
+  const stepped = (color, data, label) => ({ ...line(color, data, label), stepped: "middle", pointRadius: 0, pointHoverRadius: 5 });
+  draw("dist", {
+    type: "line",
+    data: { labels: binLabels, datasets: [stepped(css("--legit"), share(0), "Legitimate"), stepped(css("--fraud"), share(1), "Fraud")] },
+    options: baseOptions({
+      scales: { x: { ...baseOptions().scales.x, ticks: { color: css("--text-2"), maxTicksLimit: 8, maxRotation: 0 } },
+                y: { ...baseOptions().scales.y, ticks: { color: css("--text-2"), callback: v => v + "%" } } },
+      plugins: { ...baseOptions().plugins, tooltip: { ...baseOptions().plugins.tooltip, callbacks: {
+        title: i => `${binLabels[i[0].dataIndex]} – ${eur(D.hist_edges[i[0].dataIndex + 1], 1)}`,
+        label: c => ` ${c.dataset.label}: ${c.raw.toFixed(1)}% of class` } } },
+    }),
+  });
+
+  // Top 10 frauds
+  const top = forDay(frauds).sort((a, b) => b.amount - a.amount).slice(0, 10);
+  draw("topFraud", {
+    type: "bar",
+    data: { labels: top.map((_, i) => "#" + (i + 1)), datasets: [{ data: top.map(t => t.amount), backgroundColor: css("--fraud"),
+      borderRadius: { topRight: 4, bottomRight: 4 }, borderSkipped: "start", categoryPercentage: 0.8, barPercentage: 0.9 }] },
+    options: baseOptions({
+      indexAxis: "y", interaction: { mode: "nearest", intersect: false, axis: "y" },
+      scales: { x: { beginAtZero: true, grid: { color: css("--grid") }, ticks: { color: css("--text-2"), callback: v => eur(v) }, border: { display: false } },
+                y: { grid: { display: false }, ticks: { color: css("--text-2") }, border: { color: css("--border") } } },
+      plugins: { ...baseOptions().plugins, tooltip: { ...baseOptions().plugins.tooltip, callbacks: {
+        label: c => ` ${eur(top[c.dataIndex].amount, 2)} · transaction ${top[c.dataIndex].transaction_id} · day ${top[c.dataIndex].day}, ${top[c.dataIndex].hour}:00` } } },
+    }),
+  });
+
+  // Riskiest hours table
+  const ranked = hours.map(h => ({ h, n: hN[h], f: hF[h], r: hRate[h] })).sort((a, b) => b.r - a.r).slice(0, 8);
+  document.getElementById("riskHours").innerHTML =
+    "<tr><th>Hour</th><th>Transactions</th><th>Fraud cases</th><th>Fraud rate</th><th>vs average</th></tr>" +
+    ranked.map(r => `<tr><td>${String(r.h).padStart(2, "0")}:00</td><td>${int(r.n)}</td><td>${int(r.f)}</td>
+      <td>${r.r.toFixed(2)}%</td><td>${(r.r / (100 * avgRate)).toFixed(1)}×</td></tr>`).join("");
+}
+
+// ---------- model section (test set, independent of the day filter) ----------
+function renderModel() {
+  const t = D.thresholds[thrIndex];
+  const tn = D.test_rows - t.alerts - t.fraud_missed;
+  document.getElementById("thrOut").textContent = t.threshold.toFixed(2);
+  const totalFraudValue = t.fraud_value_caught_eur + t.fraud_value_missed_eur;
+  const tiles = [
+    ["Alerts to review", int(t.alerts), pct(t.alerts / D.test_rows, 2) + " of test transactions"],
+    ["Fraud caught (recall)", pct(t.recall), `${t.fraud_caught} of ${D.test_frauds} frauds`],
+    ["False alerts", int(t.false_alerts), "legitimate payments flagged"],
+    ["Precision", pct(t.precision), "of alerts are real fraud"],
+    ["Fraud value missed", eur(t.fraud_value_missed_eur), `${t.fraud_missed} cases slipped through`],
+    ["Net benefit", eur(t.net_benefit_eur), `value caught − ${eur(t.review_cost_eur)} review cost`],
+  ];
+  document.getElementById("modelKpis").innerHTML = tiles.map(([l, v, h]) =>
+    `<div class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="hint">${h}</div></div>`).join("");
+
+  const cell = (label, v, strong) =>
+    `<div class="cell" style="background:${strong ? "var(--accent-soft)" : "transparent"}"><b>${int(v)}</b><small>${label}</small></div>`;
+  document.getElementById("cm").innerHTML =
+    `<div class="h"></div><div class="h">Predicted legitimate</div><div class="h">Predicted fraud</div>
+     <div class="h">Actual<br>legitimate</div>${cell("Correctly cleared", tn, true)}${cell("False alert", t.false_alerts)}
+     <div class="h">Actual<br>fraud</div>${cell("Fraud missed", t.fraud_missed)}${cell("Fraud caught", t.fraud_caught, true)}`;
+
+  const caughtShare = t.fraud_value_caught_eur / totalFraudValue;
+  document.getElementById("meterFill").style.width = (100 * caughtShare) + "%";
+  document.getElementById("meterCaught").textContent = `Caught ${eur(t.fraud_value_caught_eur)} (${pct(caughtShare)})`;
+  document.getElementById("meterMissed").textContent = `Missed ${eur(t.fraud_value_missed_eur)}`;
+
+  const xs = D.thresholds.map(r => r.threshold);
+  draw("prThr", {
+    type: "line",
+    data: { labels: xs, datasets: [line(css("--legit"), D.thresholds.map(r => r.recall), "Recall"),
+                                   line(css("--fraud"), D.thresholds.map(r => r.precision), "Precision")] },
+    options: baseOptions({
+      scales: { x: { type: "linear", min: 0, max: 1, grid: { display: false }, ticks: { color: css("--text-2"), stepSize: 0.2 }, border: { color: css("--border") } },
+                y: { min: 0, max: 1, grid: { color: css("--grid") }, ticks: { color: css("--text-2"), callback: v => pct(v, 0) }, border: { display: false } } },
+      plugins: { ...baseOptions().plugins, refLine: { axis: "x", value: t.threshold, label: "selected " + t.threshold.toFixed(2) },
+        tooltip: { ...baseOptions().plugins.tooltip, callbacks: {
+          title: i => "Threshold " + Number(i[0].label).toFixed(2),
+          label: c => ` ${c.dataset.label}: ${pct(c.raw)}`,
+          afterBody: i => [` ${int(D.thresholds[i[0].dataIndex].alerts)} alerts`] } } },
+    }),
+  });
+}
+
+function renderModelTable() {
+  const best = D.models.reduce((a, b) => b.pr_auc > a.pr_auc ? b : a);
+  document.getElementById("models").innerHTML =
+    "<tr><th>Model</th><th>Precision</th><th>Recall</th><th>F1</th><th>PR-AUC</th><th>Fraud caught</th><th>False alerts</th><th>Fraud missed</th></tr>" +
+    D.models.map(m => `<tr class="${m === best ? "best" : ""}"><td>${m.model}</td><td>${pct(m.precision)}</td><td>${pct(m.recall)}</td>
+      <td>${m.f1.toFixed(2)}</td><td>${m.pr_auc.toFixed(2)}</td><td>${int(m.true_positives)}</td>
+      <td>${int(m.false_positives)}</td><td>${int(m.false_negatives)}</td></tr>`).join("");
+}
+
+// ---------- wiring ----------
+function renderAll() {
+  const avg = renderOverview();
+  renderPatterns(avg);
+  renderModel();
+}
+
+function segmented(id, attr, onPick) {
+  const group = document.getElementById(id);
+  group.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    group.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    onPick(b.dataset[attr]);
+  });
+}
+segmented("dayFilter", "day", v => { day = v; renderPatterns(renderOverview()); });
+segmented("bandMetric", "m", v => { bandMetric = v; renderPatterns(renderOverview()); });
+
+const slider = document.getElementById("thr");
+slider.max = D.thresholds.length - 1;
+slider.value = thrIndex;
+slider.addEventListener("input", () => { thrIndex = Number(slider.value); renderModel(); });
+document.getElementById("thrReset").addEventListener("click", () => {
+  thrIndex = D.thresholds.findIndex(t => t.threshold === D.best_threshold);
+  slider.value = thrIndex; renderModel();
+});
+
+document.getElementById("modelNote").textContent =
+  `${D.best_model} on the 30% held-out test set (${int(D.test_rows)} transactions, ${D.test_frauds} frauds). ` +
+  `Not affected by the day filter. Best threshold by net benefit: ${D.best_threshold.toFixed(2)}.`;
+document.getElementById("costNote").textContent = eur(D.review_cost);
+
+renderModelTable();
+renderAll();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+</script>
+</body>
+</html>

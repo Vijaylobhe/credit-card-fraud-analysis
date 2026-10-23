@@ -1,0 +1,2 @@
+threshold,alerts,fraud_caught,fraud_missed,false_alerts,precision,recall,fraud_value_caught_eur,fraud_value_missed_eur,review_cost_eur,net_benefit_eur,model,review_cost_per_alert_eur
+0.25,138,114,28,24,0.8260869565217391,0.8028169014084507,16000.52,3877.36,690.0,15310.52,Random Forest (class-weighted),5.0
