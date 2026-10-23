@@ -1,0 +1,8 @@
+ How to run it
+
+  cd ~/Documents/Projects/credit-card-fraud-analysis
+  source .venv/bin/activate
+  ./run_all.sh              # everything, about 3 minutes
+  # or, step by step:
+  jupyter notebook          # open 01 → 04 in order
+  python sql/run_sql.py     # run the SQL queries
